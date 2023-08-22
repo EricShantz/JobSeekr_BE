@@ -1,34 +1,20 @@
 const express = require('express') //import express (node.js framework that makes setting up servers easy)
 const cors = require('cors'); //import cors package
-const bcrypt = require("bcrypt") //imports password hashing stuff
+const bcrypt = require("bcrypt"); //imports password hashing stuff
+const { connectToDB } = require('./db/dbConnection');
 const app = express() //create an instance of the express framework for us to use
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
-const mysql = require("mysql2")
+
+connectToDB();
 
 //Middleware
 app.use(cors()); //use cors middleware
 app.use(express.json()); // tells express to make everything json in all routes
 
-const dbConnection = mysql.createConnection({
-    host: 'sql9.freemysqlhosting.net',
-    user: 'sql9641671',
-    password: 'vJ1gyPXkHx',
-    database: 'sql9641671' 
-})
-
-dbConnection.connect((err) => {
-    if (err) {
-      console.error('Error connecting to the database:', err);
-      return;
-    }
-    console.log('Connected to the database!');
-  });
-
 
 //defines a route
 app.post('/register', async(req, res) => {
     try{
-
         //TODO: check if email already exists in DB, if so, throw error with new status to be used in the front end
 
         const {firstName, lastName, email, password} = req.body
