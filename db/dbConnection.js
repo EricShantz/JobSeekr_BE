@@ -19,5 +19,6 @@ const connectToDB = () => {
 }
 
 module.exports = {
+    dbConnection,
     connectToDB
   };
