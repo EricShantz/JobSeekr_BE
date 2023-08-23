@@ -18,8 +18,19 @@ const checkIfEmailExists = async (email, res) => {
       res.status(500).json({ message: 'Something went wrong.' });
     }
 };
+
+const getUserByEmail = async(user_email, res) =>{
+    try {
+        const [results] = await dbConnection.promise().query(`SELECT * FROM users WHERE email = "${user_email}"`);
+        return results
+    } catch(err){
+        console.error('Error retrieving user:', err);
+        res.status(500).json({ message: 'Something went wrong.' });
+    }
+}
   
 module.exports= {
     createNewUser,
-    checkIfEmailExists
+    checkIfEmailExists,
+    getUserByEmail
 }
