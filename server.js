@@ -2,7 +2,8 @@ const express = require('express') //import express (node.js framework that make
 const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
 const { connectToDB, dbConnection } = require('./db/dbConnection');
-const { createNewUser, checkIfEmailExists, getUserByEmail } = require('./db/queries');
+const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken } = require('./db/queries');
+const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
 const app = express() //create an instance of the express framework for us to use
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
 
@@ -73,34 +74,55 @@ app.post('/loginUser', async(req,res) => {
         console.error(err); // Log the error for debugging
         return res.status(500).json({ success: false, message: 'An error occurred' });
       }
-
-    // try{
-    //    const {email, password} = req.body; 
-    //    const retrievedUser = await getUserByEmail(email, res)
-
-    //    if(retrievedUser.length !== 0){
-    //     console.log(retrievedUser)
-        
-    //         bcrypt.compare(password, retrievedUser[0].password, function(err, res) {
-
-    //         console.log('Provided password:', password);
-    //         console.log('Stored hashed password:', retrievedUser[0].password);
-    //         console.log('Comparison result:', res);
-    //            if (res) {
-    //                // Send JWT
-    //                console.log('JWT')
-    //             } else {
-    //                 console.log('PASSWORDS DONT MATCH')
-    //                 // response is OutgoingMessage object that server response http request
-    //                 // return response.json({success: false, message: 'passwords do not match'});
-    //             }
-    //         });
-    //     }
-
-    // } catch (err){
-
-    // }
 })
+
+//Forgot Password
+
+app.post('/forgotPassword', async (req, res) => {
+    try {
+      const { email } = req.body;
+      const user = await getUserByEmail(email);
+  
+      if (!user.length) {
+        return res.status(401).json({ success: false, message: 'No user exists with that email' });
+      }
+  
+      const updateResult = await updateResetToken(user);
+  
+      if (updateResult) {
+        if(sendPasswordResetEmail(email)){
+            console.log("SENDING 200")
+            return res.json({ success: true, message: 'Email Link sent' });
+        }else {
+            console.log("SENDING 500")
+            return res.status(500).json({ success: false, message: 'Failed to send reset email' });
+        }
+      } else {
+        console.log('updateResult false');
+        return res.status(404).json({ success: false, message: 'Failed to update reset token' });
+      }
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
+  });
+
+
+//Reset Password
+app.post('/resetPassword', (req, res)=>{
+    try{
+        const {password, confirmPassword} = req.body;
+        //TODO: Receive reset token and new password. Match token to user, check token hasnt expired.
+        // update that record with new password
+        //if success, replace reset password component with success message
+
+
+    }catch (err){
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
+})
+
 
 
 

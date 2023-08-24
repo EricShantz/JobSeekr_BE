@@ -1,4 +1,6 @@
 const { dbConnection } = require('./dbConnection');
+const crypto = require('crypto');
+
 
 const createNewUser = async (newUser, res) => {
     try {
@@ -28,9 +30,32 @@ const getUserByEmail = async(user_email, res) =>{
         res.status(500).json({ message: 'Something went wrong.' });
     }
 }
-  
+
+const updateResetToken = async(user) => {
+  try {
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpires = new Date();
+    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1);
+
+    const userId = user[0].user_id;
+
+    const result = await dbConnection.promise().query(`
+      UPDATE users 
+      SET reset_token = "${resetToken}", reset_token_expires = "${resetTokenExpires.toISOString()}"
+      WHERE user_id = ${userId}
+    `);
+
+    return result[0].affectedRows > 0;
+  } catch (error) {
+    console.error('Error updating reset token:', error);
+    return false;
+  }
+}
+
+
 module.exports= {
     createNewUser,
     checkIfEmailExists,
-    getUserByEmail
+    getUserByEmail,
+    updateResetToken
 }
