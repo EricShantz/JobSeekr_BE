@@ -2,7 +2,7 @@ const express = require('express') //import express (node.js framework that make
 const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
 const { connectToDB, dbConnection } = require('./db/dbConnection');
-const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken } = require('./db/queries');
+const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword } = require('./db/queries');
 const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
 const app = express() //create an instance of the express framework for us to use
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
@@ -106,21 +106,32 @@ app.post('/forgotPassword', async (req, res) => {
     }
 });
 
-
-
-
-
-
-
-
 //Reset Password
-app.post('/resetPassword', (req, res)=>{
+app.post('/resetPassword', async (req, res)=>{
     try{
-        const {password, confirmPassword} = req.body;
-        //TODO: Receive reset token and new password. Match token to user, check token hasnt expired.
-        // update that record with new password
-        //if success, replace reset password component with success message
+        const {reset_token, password, confirm_password} = req.body;
 
+        const validateToken = await validateResetToken(reset_token)
+
+        if(validateToken){
+
+            if(password !== confirm_password){
+                return res.status(500).json({ success: false, message: 'Passwords do not match' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10)
+            const updateResult = await updateUserPassword(hashedPassword, reset_token)
+
+            if(updateResult){
+                return res.status(200).json({success: true, message: 'Password reset successful'})
+            } else {
+                return res.status(500).json({ success: false, message: 'Password reset failed' });
+            }
+            
+        } else {
+            console.error("Invalid token");
+            return res.status(500).json({ success: false, message: 'An error occurred' });
+        }
 
     }catch (err){
         console.error(err);

@@ -56,10 +56,46 @@ const updateResetToken = async(user) => {
   }
 }
 
+const validateResetToken = async (reset_token) => {
+  try {
+    const [results] = await dbConnection.promise().query(`SELECT reset_token_expires FROM users WHERE reset_token = "${reset_token}"`);
+
+    if (results.length > 0 && new Date(results[0].reset_token_expires) >= new Date()) {
+      return true;
+    } else {
+      return false;
+    }
+
+  } catch (err) {
+    console.error('Error validating reset_token:', err);
+    return { success: false, error: 'Something went wrong.' };
+  }
+}
+
+const updateUserPassword = async(hashedPassword, reset_token) =>{
+  try{
+    const result = await dbConnection.promise().query(`
+      UPDATE users 
+      SET password = "${hashedPassword}"
+      WHERE reset_token = "${reset_token}"
+    `);
+
+    if(result[0].affectedRows > 0){
+      return result
+    } else {
+      return null
+    }
+  } catch(err) {
+    console.error('Error updating password:', err);
+    return { success: false, error: 'Something went wrong.' };
+  }
+}
 
 module.exports= {
     createNewUser,
     checkIfEmailExists,
     getUserByEmail,
-    updateResetToken
+    updateResetToken,
+    validateResetToken,
+    updateUserPassword
 }
