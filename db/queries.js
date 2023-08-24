@@ -45,7 +45,11 @@ const updateResetToken = async(user) => {
       WHERE user_id = ${userId}
     `);
 
-    return result[0].affectedRows > 0;
+    if(result[0].affectedRows > 0){
+      return resetToken
+    } else {
+      return null
+    }
   } catch (error) {
     console.error('Error updating reset token:', error);
     return false;

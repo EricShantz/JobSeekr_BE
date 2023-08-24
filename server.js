@@ -77,35 +77,40 @@ app.post('/loginUser', async(req,res) => {
 })
 
 //Forgot Password
-
 app.post('/forgotPassword', async (req, res) => {
     try {
-      const { email } = req.body;
-      const user = await getUserByEmail(email);
-  
-      if (!user.length) {
-        return res.status(401).json({ success: false, message: 'No user exists with that email' });
-      }
-  
-      const updateResult = await updateResetToken(user);
-  
-      if (updateResult) {
-        if(sendPasswordResetEmail(email)){
-            console.log("SENDING 200")
-            return res.json({ success: true, message: 'Email Link sent' });
-        }else {
-            console.log("SENDING 500")
-            return res.status(500).json({ success: false, message: 'Failed to send reset email' });
+        const { email } = req.body;
+        const user = await getUserByEmail(email);
+
+        if (!user.length) {
+            return res.status(401).json({ success: false, message: 'No user exists with that email' });
         }
-      } else {
-        console.log('updateResult false');
-        return res.status(404).json({ success: false, message: 'Failed to update reset token' });
-      }
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ success: false, message: 'An error occurred' });
+
+        const reset_token = await updateResetToken(user);
+
+        if (reset_token) {
+            const emailSent = await sendPasswordResetEmail(email, reset_token);
+            if (emailSent) {
+                return res.json({ success: true, message: 'Email Link sent' });
+            } else {
+                console.log("res.status(500)");
+                return res.status(500).json({ success: false, message: 'Failed to send reset email' });
+            }
+        } else {
+            console.log("res.status(500)");
+            return res.status(500).json({ success: false, message: 'Failed to update reset token' });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
     }
-  });
+});
+
+
+
+
+
+
 
 
 //Reset Password
