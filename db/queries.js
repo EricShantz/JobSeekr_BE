@@ -1,7 +1,6 @@
 const { dbConnection } = require('./dbConnection');
 const crypto = require('crypto');
 
-
 const createNewUser = async (newUser, res) => {
     try {
       return await dbConnection.promise().query('INSERT INTO users SET ?', newUser);
