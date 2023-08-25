@@ -1,12 +1,17 @@
 const express = require('express') //import express (node.js framework that makes setting up servers easy)
 const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
-const { connectToDB, dbConnection } = require('./db/dbConnection');
-const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword } = require('./db/queries');
-const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
-const app = express() //create an instance of the express framework for us to use
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
+const app = express() //create an instance of the express framework for us to use
+const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword } = require('./db/queries');
+const { connectToDB, dbConnection } = require('./db/dbConnection');
+const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
+const {verifyToken} = require('./middleware/middleware')
+require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const secretKey = process.env.JWT_SECRET;
 
+//initialize db connection
 connectToDB();
 
 //Middleware
@@ -62,7 +67,21 @@ app.post('/loginUser', async(req,res) => {
           }
           if (result) {
             // Passwords match, proceed with login
-            return res.json({ success: true, message: 'Login successful', user: results[0]});
+            const token = jwt.sign(
+                {
+                  user: results[0]
+                },
+                secretKey,
+                { expiresIn: '1h' }
+              );
+              
+              return res.json({
+                token,
+                success: true,
+                message: 'Login successful',
+                user: results[0]
+              });
+
           } else {
             // Passwords do not match
             return res.status(401).json({ success: false, message: 'Passwords do not match' });
@@ -137,6 +156,26 @@ app.post('/resetPassword', async (req, res)=>{
         console.error(err);
         return res.status(500).json({ success: false, message: 'An error occurred' });
     }
+})
+
+//Get User Applications
+app.get('/user/fetchUserApplications', verifyToken, async(req, res)=>{
+
+})
+
+//Update User Application
+app.put('/user/updateUserApplication', verifyToken, async(req, res)=>{
+
+})
+
+//Delete User Application
+app.delete('/user/deleteUserApplication', verifyToken, async(req, res)=>{
+
+})
+
+//Create User Application
+app.post('/user/createUserApplication', verifyToken, async(req, res)=>{
+
 })
 
 
