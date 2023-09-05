@@ -3,7 +3,7 @@ const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
 const app = express() //create an instance of the express framework for us to use
-const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword } = require('./db/queries');
+const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword, createNewApplicationEntry } = require('./db/queries');
 const { connectToDB, dbConnection } = require('./db/dbConnection');
 const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
 const {verifyToken} = require('./middleware/middleware')
@@ -35,8 +35,13 @@ app.post('/register', async(req, res) => {
 
         const emailExists = await checkIfEmailExists(email, res)
         if(emailExists.length === 0){
-            if(await createNewUser(newUser, res)){
-                res.status(200).json({message: "User successfully registered!", user: newUser})
+            const result = await createNewUser(newUser, res)
+            if(result){
+                const payload = {
+                    "sub": newUser.user_id     
+                }
+                const token = jwt.sign(payload, secretKey,  {algorithm: 'HS256', expiresIn: '1h'});  
+                res.status(200).json({token, message: "User successfully registered!", user: newUser})
             }
         } else {
             res.status(409).json({ message: "A user with that email already exists." });
@@ -67,20 +72,11 @@ app.post('/loginUser', async(req,res) => {
           }
           if (result) {
             // Passwords match, proceed with login
-            const token = jwt.sign(
-                {
-                  user: results[0]
-                },
-                secretKey,
-                { expiresIn: '1h' }
-              );
-              
-              return res.json({
-                token,
-                success: true,
-                message: 'Login successful',
-                user: results[0]
-              });
+            const payload = {
+                "sub": results[0].user_id     
+            }
+            const token = jwt.sign(payload, secretKey, {algorithm: 'HS256', expiresIn: '1h'});
+            return res.json({token, success: true, message: 'Login successful', user: results[0]});
 
           } else {
             // Passwords do not match
@@ -159,22 +155,36 @@ app.post('/resetPassword', async (req, res)=>{
 })
 
 //Get User Applications
-app.get('/user/fetchUserApplications', verifyToken, async(req, res)=>{
+app.get('/fetchUserApplications', verifyToken, async(req, res)=>{
+    //from verifyToken middleware, req.user is now decoded
 
 })
 
 //Update User Application
-app.put('/user/updateUserApplication', verifyToken, async(req, res)=>{
+app.put('/updateUserApplication', verifyToken, async(req, res)=>{
 
 })
 
 //Delete User Application
-app.delete('/user/deleteUserApplication', verifyToken, async(req, res)=>{
+app.delete('/deleteUserApplication', verifyToken, async(req, res)=>{
 
 })
 
 //Create User Application
-app.post('/user/createUserApplication', verifyToken, async(req, res)=>{
+app.post('/createUserApplication', verifyToken, async(req, res)=>{
+
+    try{
+        const result = await createNewApplicationEntry(req.body, res)
+        if(result){
+            res.status(200).json({message: "Application entry successfully created!"})
+        } else {
+            res.status(500).json({ message: 'Unable to create application entry' });
+        }
+        
+    } catch(err){
+        console.error('Error hashing password:', err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
 
 })
 

@@ -90,11 +90,32 @@ const updateUserPassword = async(hashedPassword, reset_token) =>{
   }
 }
 
+const createNewApplicationEntry = async (body, res) => {
+  const {company_name,
+    job_title, 
+    compensation, 
+    job_description, 
+    link_to_job_posting, 
+    date_applied, 
+    interview_date, 
+    is_favourite, 
+    application_status, 
+    user_id} = body
+
+  try{
+    return await dbConnection.promise().query('INSERT INTO applications SET ?', body);
+  }catch (err){
+    console.error('Error retrieving user:', err);
+    res.status(500).json({ message: 'Something went wrong.' });
+  }
+}
+
 module.exports= {
     createNewUser,
     checkIfEmailExists,
     getUserByEmail,
     updateResetToken,
     validateResetToken,
-    updateUserPassword
+    updateUserPassword,
+    createNewApplicationEntry
 }
