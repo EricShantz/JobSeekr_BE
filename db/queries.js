@@ -99,6 +99,15 @@ const createNewApplicationEntry = async (body, res) => {
   }
 }
 
+const fetchUserApplications = async (user_id, res) =>{
+  try{
+    return await dbConnection.promise().query(`SELECT * FROM applications WHERE user_id = ${user_id}`)
+  }catch (err){
+      console.error('Error retrieving applications:', err);
+      res.status(500).json({ message: 'Something went wrong.' });
+  }
+}
+
 module.exports= {
     createNewUser,
     checkIfEmailExists,
@@ -106,5 +115,6 @@ module.exports= {
     updateResetToken,
     validateResetToken,
     updateUserPassword,
-    createNewApplicationEntry
+    createNewApplicationEntry,
+    fetchUserApplications
 }

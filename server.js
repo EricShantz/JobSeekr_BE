@@ -3,13 +3,22 @@ const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
 const app = express() //create an instance of the express framework for us to use
-const { createNewUser, checkIfEmailExists, getUserByEmail, updateResetToken, validateResetToken, updateUserPassword, createNewApplicationEntry } = require('./db/queries');
-const { connectToDB, dbConnection } = require('./db/dbConnection');
-const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
-const {verifyToken} = require('./middleware/middleware')
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const secretKey = process.env.JWT_SECRET;
+const { connectToDB, dbConnection } = require('./db/dbConnection');
+const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
+const {verifyToken} = require('./middleware/middleware')
+const { 
+    createNewUser,
+    checkIfEmailExists,
+    getUserByEmail,
+    updateResetToken,
+    validateResetToken,
+    updateUserPassword,
+    createNewApplicationEntry,
+    fetchUserApplications, 
+    } = require('./db/queries');
 
 //initialize db connection
 connectToDB();
@@ -156,7 +165,26 @@ app.post('/resetPassword', async (req, res)=>{
 
 //Get User Applications
 app.get('/fetchUserApplications', verifyToken, async(req, res)=>{
-    //from verifyToken middleware, req.user is now decoded
+    try{
+        const user_id = req.query.user_id; // Extract user_id from query parameters
+
+        if (!user_id) {
+            return res.status(400).json({ message: 'Invalid user_id' });
+        }
+
+        const results = await fetchUserApplications(user_id)
+        console.log("LIST",results)
+
+        if(results){
+            res.status(200).json({results: results, message: "Applications retrieved successfully!"})
+        }else {
+            res.status(500).json({ message: 'Unable to retrieve applications' });
+        }
+
+    } catch (err){
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
 
 })
 
