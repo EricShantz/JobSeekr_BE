@@ -1,11 +1,26 @@
 const express = require('express') //import express (node.js framework that makes setting up servers easy)
 const cors = require('cors'); //import cors package
 const bcrypt = require("bcrypt"); //imports password hashing stuff
-const { connectToDB, dbConnection } = require('./db/dbConnection');
-const { createNewUser, checkIfEmailExists, getUserByEmail } = require('./db/queries');
-const app = express() //create an instance of the express framework for us to use
 const port = process.env.PORT || 3001; //if port is configured use it, if not default to 3000
+const app = express() //create an instance of the express framework for us to use
+require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const secretKey = process.env.JWT_SECRET;
+const { connectToDB, dbConnection } = require('./db/dbConnection');
+const {sendPasswordResetEmail} = require('./utils/sendResetEmail')
+const {verifyToken} = require('./middleware/middleware')
+const { 
+    createNewUser,
+    checkIfEmailExists,
+    getUserByEmail,
+    updateResetToken,
+    validateResetToken,
+    updateUserPassword,
+    createNewApplicationEntry,
+    fetchUserApplications, 
+    } = require('./db/queries');
 
+//initialize db connection
 connectToDB();
 
 //Middleware
@@ -29,8 +44,13 @@ app.post('/register', async(req, res) => {
 
         const emailExists = await checkIfEmailExists(email, res)
         if(emailExists.length === 0){
-            if(await createNewUser(newUser, res)){
-                res.status(200).json({message: "User successfully registered!", user: newUser})
+            const result = await createNewUser(newUser, res)
+            if(result){
+                const payload = {
+                    "sub": newUser.user_id     
+                }
+                const token = jwt.sign(payload, secretKey,  {algorithm: 'HS256', expiresIn: '1h'});  
+                res.status(200).json({token, message: "User successfully registered!", user: newUser})
             }
         } else {
             res.status(409).json({ message: "A user with that email already exists." });
@@ -61,7 +81,12 @@ app.post('/loginUser', async(req,res) => {
           }
           if (result) {
             // Passwords match, proceed with login
-            return res.json({ success: true, message: 'Login successful', user: results[0]});
+            const payload = {
+                "sub": results[0].user_id     
+            }
+            const token = jwt.sign(payload, secretKey, {algorithm: 'HS256', expiresIn: '1h'});
+            return res.json({token, success: true, message: 'Login successful', user: results[0]});
+
           } else {
             // Passwords do not match
             return res.status(401).json({ success: false, message: 'Passwords do not match' });
@@ -73,34 +98,124 @@ app.post('/loginUser', async(req,res) => {
         console.error(err); // Log the error for debugging
         return res.status(500).json({ success: false, message: 'An error occurred' });
       }
-
-    // try{
-    //    const {email, password} = req.body; 
-    //    const retrievedUser = await getUserByEmail(email, res)
-
-    //    if(retrievedUser.length !== 0){
-    //     console.log(retrievedUser)
-        
-    //         bcrypt.compare(password, retrievedUser[0].password, function(err, res) {
-
-    //         console.log('Provided password:', password);
-    //         console.log('Stored hashed password:', retrievedUser[0].password);
-    //         console.log('Comparison result:', res);
-    //            if (res) {
-    //                // Send JWT
-    //                console.log('JWT')
-    //             } else {
-    //                 console.log('PASSWORDS DONT MATCH')
-    //                 // response is OutgoingMessage object that server response http request
-    //                 // return response.json({success: false, message: 'passwords do not match'});
-    //             }
-    //         });
-    //     }
-
-    // } catch (err){
-
-    // }
 })
+
+//Forgot Password
+app.post('/forgotPassword', async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await getUserByEmail(email);
+
+        if (!user.length) {
+            return res.status(401).json({ success: false, message: 'No user exists with that email' });
+        }
+
+        const reset_token = await updateResetToken(user);
+
+        if (reset_token) {
+            const emailSent = await sendPasswordResetEmail(email, reset_token);
+            if (emailSent) {
+                return res.json({ success: true, message: 'Email Link sent' });
+            } else {
+                console.log("res.status(500)");
+                return res.status(500).json({ success: false, message: 'Failed to send reset email' });
+            }
+        } else {
+            console.log("res.status(500)");
+            return res.status(500).json({ success: false, message: 'Failed to update reset token' });
+        }
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
+});
+
+//Reset Password
+app.post('/resetPassword', async (req, res)=>{
+    try{
+        const {reset_token, password, confirm_password} = req.body;
+
+        const validateToken = await validateResetToken(reset_token)
+
+        if(validateToken){
+
+            if(password !== confirm_password){
+                return res.status(500).json({ success: false, message: 'Passwords do not match' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10)
+            const updateResult = await updateUserPassword(hashedPassword, reset_token)
+
+            if(updateResult){
+                return res.status(200).json({success: true, message: 'Password reset successful'})
+            } else {
+                return res.status(500).json({ success: false, message: 'Password reset failed' });
+            }
+            
+        } else {
+            console.error("Invalid token");
+            return res.status(500).json({ success: false, message: 'An error occurred' });
+        }
+
+    }catch (err){
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
+})
+
+//Get User Applications
+app.get('/fetchUserApplications', verifyToken, async(req, res)=>{
+    try{
+        const user_id = req.query.user_id; // Extract user_id from query parameters
+
+        if (!user_id) {
+            return res.status(400).json({ message: 'Invalid user_id' });
+        }
+
+        const results = await fetchUserApplications(user_id)
+        console.log("LIST",results)
+
+        if(results){
+            res.status(200).json({results: results, message: "Applications retrieved successfully!"})
+        }else {
+            res.status(500).json({ message: 'Unable to retrieve applications' });
+        }
+
+    } catch (err){
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'An error occurred' });
+    }
+
+})
+
+//Update User Application
+app.put('/updateUserApplication', verifyToken, async(req, res)=>{
+
+})
+
+//Delete User Application
+app.delete('/deleteUserApplication', verifyToken, async(req, res)=>{
+
+})
+
+//Create User Application
+app.post('/createUserApplication', verifyToken, async(req, res)=>{
+
+    try{
+        const result = await createNewApplicationEntry(req.body, res)
+        if(result){
+            res.status(200).json({message: "Application entry successfully created!"})
+        } else {
+            res.status(500).json({ message: 'Unable to create application entry' });
+        }
+        
+    } catch(err){
+        console.error('Error hashing password:', err);
+        res.status(500).json({ message: 'Something went wrong' });
+    }
+
+})
+
 
 
 

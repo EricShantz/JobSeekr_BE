@@ -7,7 +7,6 @@ const dbConnection = mysql.createConnection({
     database: 'sql9641671' 
 })
 
-
 const connectToDB = () => {
     dbConnection.connect((err) => {
         if (err) {
